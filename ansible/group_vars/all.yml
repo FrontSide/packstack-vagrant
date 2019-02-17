@@ -1,0 +1,20 @@
+# Parameters to connect to keystone
+# these are equivalent to the env variables set
+# by keystonerc_admin.
+# e.g. OS_USER_DOMAIN_NAME => user_domain_name
+#
+# This nested variable will be assigned to the 
+# "auth" parameter in each task of all openstack roles that require it
+os_auth:
+  auth_url: http://localhost:5000/v3
+  username: admin
+  password: 2ea38a47212d40df
+  project_name: admin
+  project_domain_name: Default
+  user_domain_name: Default
+
+# VM creation parameters
+# These values will be used for the 
+# ansible-playbook create-vm and hence the create_vm role
+vm_count: 3
+vm_flavor: m1.tiny

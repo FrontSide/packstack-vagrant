@@ -1,0 +1,9 @@
+- hosts: localhost
+  tasks:
+  - name: Create a number of VMs with the same specs
+    # See group_vars/all.yml for vm_count and flacour specs
+    include_role:
+      name: create_vm
+    vars:
+      vm_count_idx: "{{item}}"
+    with_sequence: start=1 end={{vm_count}}

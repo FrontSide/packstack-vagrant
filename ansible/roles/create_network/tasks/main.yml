@@ -1,0 +1,7 @@
+- name: Create an externally accessible network named 'public_custom'
+  os_network:
+    state: present
+    name: public_custom
+    external: true
+    # auth values defined in group_vars/all.yml
+    auth: "{{os_auth}}"
