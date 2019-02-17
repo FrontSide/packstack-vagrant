@@ -57,7 +57,7 @@ installed (even though the ansible module documentation says openstacksdk is req
 pip install shade 
 
 I added separate roles for each of the above use cases.
-One of the pitfalls I encounterd was that I had to add user_domain_name
+One of the pitfalls I encountered was that I had to add user_domain_name
 and project_domain_name parameters to the auth section in the ansible task
 in order to be able to connect via keystone.
 ```
@@ -116,31 +116,138 @@ For some reason the VMs went into status SHUTOFF
 
 ``` 
 I decided to use group_vars/all.yml as the shared YAML configuration for the playbook and roles.
-In this file I defined a nested os_auth variable which is used by all my openstack roles
-to fetch authentication information.
+In this file I defined the variables vm_count and vm_flavor to specify the number of vms to be crated and 
+the flavor to be selected.
 
-Then I created variables vm_count and vm_flavor to specify the number of vms to be crated and 
-the flavor to be selected.  
+(Originally I also put authentication for openstack into this file, however, I later
+found that clouds.yml is a better place as it is also used for the inventory plugin)
 
 The vm_count works in that the role to create a vm is executed n time through a "with_sequence" loop
 in the create-vm playbook, whereas n == vm_count. Each VM is then named "vm<idx>" whereas idx is the 
 loop index. So if vm_count==3 following VMs are created: vm1, vm2 and vm3.
 
-    [root@packstack ~(keystone_admin)]# openstack server list                                        
-    +--------------------------------------+------+--------+--------------------+--------+---------+ 
-    | ID                                   | Name | Status | Networks           | Image  | Flavor  | 
-    +--------------------------------------+------+--------+--------------------+--------+---------+ 
-    | 89a13787-3a6a-4b79-b95d-10dea09a8f45 | vm3  | ACTIVE | public=172.24.4.6  | cirros | m1.tiny | 
-    | 2c842d74-a333-4b33-a37f-c54c6a82bb83 | vm2  | ACTIVE | public=172.24.4.11 | cirros | m1.tiny | 
-    | c75663a9-c1c0-4f84-baa4-8f83ba4ab65e | vm1  | ACTIVE | public=172.24.4.3  | cirros | m1.tiny | 
-    +--------------------------------------+------+--------+--------------------+--------+---------+ 
+[root@packstack ~(keystone_admin)]# openstack server list                                        
++--------------------------------------+------+--------+--------------------+--------+---------+ 
+| ID                                   | Name | Status | Networks           | Image  | Flavor  | 
++--------------------------------------+------+--------+--------------------+--------+---------+ 
+| 89a13787-3a6a-4b79-b95d-10dea09a8f45 | vm3  | ACTIVE | public=172.24.4.6  | cirros | m1.tiny | 
+| 2c842d74-a333-4b33-a37f-c54c6a82bb83 | vm2  | ACTIVE | public=172.24.4.11 | cirros | m1.tiny | 
+| c75663a9-c1c0-4f84-baa4-8f83ba4ab65e | vm1  | ACTIVE | public=172.24.4.3  | cirros | m1.tiny | 
++--------------------------------------+------+--------+--------------------+--------+---------+ 
+
+Now they are ACTIVE as well
+
 ```
 
 5) Create a dynamic Ansible inventory that can be used to:
     * Query Openstack and retrieve the Names, IP Addresses and other information from the Compute Service for Virtual Machines.
-    * Group Virtual Machines (so they can be targeted by Ansible) based on some attributes, for example:
+    
+```
+For the dynamic inventory I'm using the openstack inventory plugin 
+(https://docs.ansible.com/ansible/latest/plugins/inventory/openstack.html)
+
+- I added a cloud.yml to hold the credentials for keystone (also used by the previously created roles)
+- A openstack.yml to hold the configuration for the openstack inventory plugin
+- And a ansible.cfg to define openstack and openstack.yml as the default inventory
+  so that I can omit the -i openstack.yml when running a playbook
+
+I have one VM running on openstack, and it I now run ansible-inventory --graph it results in following output:
+
+@all:
+  |--@:
+  |  |--vm1
+  |--@_nova:
+  |  |--vm1
+  |--@default:
+  |  |--vm1
+  |--@default_:
+  |  |--vm1
+  |--@default__nova:
+  |  |--vm1
+  |--@flavor-m1.tiny:
+  |  |--vm1
+  |--@image-cirros:
+  |  |--vm1
+  |--@instance-88db5906-0af1-4b0d-867f-c7243d7b1c3d:
+  |  |--vm1
+  |--@nova:
+  |  |--vm1
+  |--@ungrouped:
+
+If e.g. I now had a playbook with hosts: default, it would run against vm1.
+
+Now, in order to retrieve more information about a VM. One can run (e.g. for vm1) 
+$ ansible-inventory --host=vm1
+
+{
+    "ansible_host": "172.24.4.2",
+    "ansible_ssh_host": "172.24.4.2",
+    "openstack": {
+        "OS-DCF:diskConfig": "MANUAL",
+        "OS-EXT-AZ:availability_zone": "nova",
+        "OS-EXT-SRV-ATTR:host": "packstack",
+        "OS-EXT-SRV-ATTR:hypervisor_hostname": "packstack",
+        "OS-EXT-SRV-ATTR:instance_name": "instance-00000001",
+        "OS-EXT-STS:power_state": 1,
+        "OS-EXT-STS:task_state": null,
+        "OS-EXT-STS:vm_state": "active",
+        "OS-SRV-USG:launched_at": "2019-02-17T15:26:07.000000",
+        "OS-SRV-USG:terminated_at": null,
+        "accessIPv4": "172.24.4.2",
+        "accessIPv6": "",
+        "addresses": {
+            "public": [
+                {
+                    "OS-EXT-IPS-MAC:mac_addr": "fa:16:3e:4c:98:5c",
+                    "OS-EXT-IPS:type": "fixed",
+                    "addr": "172.24.4.2",
+                    "version": 4
+                }
+            ]
+        },
+        "adminPass": null,
+        "az": "nova",
+        "cloud": "default",
+        "config_drive": "",
+        "created": "2019-02-17T15:25:41Z",
+        "created_at": "2019-02-17T15:25:41Z",
+        "disk_config": "MANUAL",
+        "flavor": {
+            "id": "1",
+            "name": "m1.tiny"
+        },
+        
+        ............... etc .......................
+
+        "status": "ACTIVE",
+        "task_state": null,
+        "tenant_id": "37fdd4c4a6524caba1023b4d6f8a300b",
+        "terminated_at": null,
+        "updated": "2019-02-17T15:26:07Z",
+        "user_id": "993093e9a36746fc94c1b81800308d73",
+        "vm_state": "active",
+        "volumes": []
+    },
+    "vm_count": 1,
+    "vm_flavor": "m1.tiny"
+}
+
+```
+
+* Group Virtual Machines (so they can be targeted by Ansible) based on some attributes, for example:
       * vm_state, power_state, flavor, host etc.
 
+```
+
+For the grouping we can modify the openstack.yml plugin configuration
+Unfortunately this feature is more or less undocumented.
+I managed to get the grouping by active state working by setting
+groups:
+  active_state: vm1.openstack.status == 'ACTIVE'
+This apparently lists all active vms as active_state
+although I'm unsure why, as the root key is the vm name (vm1)
+
+```
 
 6) Upload all work to a public github repository and share the link in advance of your interview.
 

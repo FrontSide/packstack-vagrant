@@ -6,5 +6,3 @@
        flavor: "{{vm_flavor}}"
        nics:
          - net-name: public
-       # auth values defined in group_vars/all.yml
-       auth: "{{os_auth}}"

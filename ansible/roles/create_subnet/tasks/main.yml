@@ -4,5 +4,3 @@
     network_name: public_custom
     name: public_custom_subnet
     cidr: 192.168.0.0/24
-    # auth values defined in group_vars/all.yml
-    auth: "{{os_auth}}"

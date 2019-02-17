@@ -6,5 +6,3 @@
     vcpus: 1
     disk: 5
     ephemeral: 5
-    # auth values defined in group_vars/all.yml
-    auth: "{{os_auth}}"

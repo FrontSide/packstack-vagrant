@@ -3,5 +3,3 @@
     state: present
     name: public_custom
     external: true
-    # auth values defined in group_vars/all.yml
-    auth: "{{os_auth}}"

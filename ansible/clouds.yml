@@ -1,0 +1,9 @@
+clouds:
+  default:
+    auth:
+      auth_url: http://localhost:5000/v3
+      username: admin
+      password: 2ea38a47212d40df
+      project_name: admin
+      project_domain_name: Default
+      user_domain_name: Default
