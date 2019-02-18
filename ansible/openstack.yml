@@ -1,9 +1,7 @@
 # openstack.yml 
 # This is the configuration for the ansible openstack inventory plugin  
+# Note that this file is NOT used by the openstack_inventory.py script
+# if the script is defined as the source for the dynamic inventory.
 plugin: openstack
-#xpand_hostvars: yess
-#fail_on_errors: yes
-
-groups:
-  status_active: vm2.openstack.status == 'ACTIVE'
-  
+xpand_hostvars: yess
+fail_on_errors: yes

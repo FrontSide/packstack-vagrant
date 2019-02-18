@@ -239,13 +239,142 @@ $ ansible-inventory --host=vm1
 
 ```
 
-For the grouping we can modify the openstack.yml plugin configuration
-Unfortunately this feature is more or less undocumented.
-I managed to get the grouping by active state working by setting
-groups:
-  active_state: vm1.openstack.status == 'ACTIVE'
-This apparently lists all active vms as active_state
-although I'm unsure why, as the root key is the vm name (vm1)
+The in-development version of the openstack ansible inventory plugin 
+allows us to modify the openstack.yml plugin configuration so that we can add 
+keyed groups to it for creating groups based on the values of host attributes 
+e.g. one per vm_state: active, stopped etc...
+
+Unfortunately this version is not yet available in the latest released version of ansible, 
+so we will need to use and inventory script.
+The documentation for dynamic inventories already links to an inventory script, 
+so I downloaded it and use it as my starting point: https://docs.ansible.com/ansible/latest/user_guide/intro_dynamic_inventory.html#implicit-use-of-openstack-inventory-script
+
+To use this new script as default inventory, rather than the plugin, 
+I changed the ansible.cfg to use openstack_inventory.py.
+And I removed the enabled_plugin line.
+
+The commands to show the inventory graph and info about a host 
+works just the same as before.
+
+However, this now also means that openstack.yml doesn't get used anymore.
+We could theoretically still use it by moving it into /etc/ansible, but we don't really need to.
+
+For the custom key settings, I will add a dictionary to the openstack_inventory.py
+file where a user can add attribute names of hosts, so that custom keys can be generated.
+
+If I had more time I would suggest to improve the script so that 
+it can read from a "keyed_groups" attribute in the openstack.yml file,
+as the plugin is supposed to do.
+Ideally, we would then just seamlessly swap over to the plugin once this 
+feature is released with ansible.
+I am also considering opening a PR for some improvements on the openstack inventory plugin
+(mostly related to documentation).
+
+The simpler (but less nice way) was to add the following:
+
+    # To create custom server groupings by server attributes in the inventory, 
+    # add an entry to the dict where the key is the prefix for the group and the 
+    # value is the server variable key.
+    #
+    # e.g. to create new groupings based on the server's vm_state,
+    # add an entry { "vm_state_": "vm_state" }, this will now create 
+    # server groups based on the vm_state: "vm_state_active", "vm_state_stopped", etc.
+    KEYED_GROUPS = {
+        "vm_state_": "vm_state", 
+        "power_state_": "power_state",
+    }
+
+and later in the code we parse this dict with:
+
+    # Custom keyed_groups as per KEYED_GROUPS list 
+    for keyed_group_prefix, host_var_key in KEYED_GROUPS.items():
+        groups.append("%s%s" % (keyed_group_prefix, server_vars[host_var_key]))
+
+If we now run ansible-inventory --graph, we get following output:
+
+@all:
+  |--@_nova:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@default:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@default_:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@default__nova:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@flavor-m1.tiny:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@image-cirros:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@instance-4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |--@instance-88db5906-0af1-4b0d-867f-c7243d7b1c3d:
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@nova:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@power_state_4:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@ungrouped:
+  |--@vm1:
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+  |--@vm2:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |--@vm_state_stopped:
+  |  |--4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf
+  |  |--88db5906-0af1-4b0d-867f-c7243d7b1c3d
+
+As can be seen there is now a group for vm_state_stopped and for power_state_4.
+
+We could now target our playbook to host: vm_state_stopped.
+
+One more change that I made was to change the server listings in the inventory from 
+id to name. This might not be suitable for all cases, but here it just makes it more readable.
+
+@all:
+  |--@_nova:
+  |  |--vm1
+  |  |--vm2
+  |--@default:
+  |  |--vm1
+  |  |--vm2
+  |--@default_:
+  |  |--vm1
+  |  |--vm2
+  |--@default__nova:
+  |  |--vm1
+  |  |--vm2
+  |--@flavor-m1.tiny:
+  |  |--vm1
+  |  |--vm2
+  |--@image-cirros:
+  |  |--vm1
+  |  |--vm2
+  |--@instance-4dc7abf4-dbe3-4829-888d-9bc1d1c0a1cf:
+  |  |--vm2
+  |--@instance-88db5906-0af1-4b0d-867f-c7243d7b1c3d:
+  |  |--vm1
+  |--@nova:
+  |  |--vm1
+  |  |--vm2
+  |--@power_state_4:
+  |  |--vm1
+  |  |--vm2
+  |--@ungrouped:
+  |--@vm1:
+  |  |--vm1
+  |--@vm2:
+  |  |--vm2
+  |--@vm_state_stopped:
+  |  |--vm1
+  |  |--vm2
+
 
 ```
 
