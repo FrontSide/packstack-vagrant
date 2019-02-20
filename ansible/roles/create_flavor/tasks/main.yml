@@ -1,0 +1,8 @@
+- name: Create 'tiny_custom' flavor with 1GB of RAM, 1 vCPU, 5GB of local disk and 5GB of ephemeral.
+  os_nova_flavor:
+    state: present
+    name: tiny_custom
+    ram: 1024
+    vcpus: 1
+    disk: 5
+    ephemeral: 5

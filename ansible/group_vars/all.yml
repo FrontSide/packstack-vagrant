@@ -1,0 +1,5 @@
+# VM creation parameters
+# These values will be used for the 
+# ansible-playbook create-vm and hence the create_vm role
+vm_count: 2
+vm_flavor: m1.tiny

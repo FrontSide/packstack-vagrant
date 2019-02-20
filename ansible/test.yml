@@ -1,0 +1,3 @@
+- hosts: vm_state_stopped
+  tasks:
+    - command: ls -la

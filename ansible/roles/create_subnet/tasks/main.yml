@@ -1,0 +1,6 @@
+- name: Create new (or update existing) subnet public_custom_subnet on a network
+  os_subnet:
+    state: present
+    network_name: public_custom
+    name: public_custom_subnet
+    cidr: 192.168.0.0/24

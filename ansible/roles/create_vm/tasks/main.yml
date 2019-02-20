@@ -1,0 +1,8 @@
+- name: Create a tiny compute instance from cirros image on public network
+  os_server:
+       state: present
+       name: "vm{{vm_count_idx}}"
+       image: cirros
+       flavor: "{{vm_flavor}}"
+       nics:
+         - net-name: public
